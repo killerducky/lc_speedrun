@@ -4,13 +4,15 @@
 import requests
 import chess.pgn
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import configparser
 
-USERNAME = "CLSmith15"
+CONF = configparser.ConfigParser()
 PIECES = [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]
 SCOREBOARD = {}
 TIMEUSED = 0
 TIMEUSED_LOSS_PENALTY = 0
+NUMGAMES = 0
 
 # Last game of CLSmith15's run
 #[Event "Hourly UltraBullet Arena"]
@@ -35,15 +37,17 @@ TIMEUSED_LOSS_PENALTY = 0
 # Go to the game you want to include, look at the pgn, find these:
 #[UTCDate "2021.04.28"]
 #[UTCTime "16:33:57"]
-SINCE = datetime.strptime("2021.04.27 18:37:42 +0000", "%Y.%m.%d %H:%M:%S %z")
-UNTIL = datetime.strptime("2021.04.28 01:35:33 +0000", "%Y.%m.%d %H:%M:%S %z")
+#SINCE = datetime.strptime("2021.04.27 18:37:42 +0000", "%Y.%m.%d %H:%M:%S %z")
+#UNTIL = datetime.strptime("2021.04.28 01:35:33 +0000", "%Y.%m.%d %H:%M:%S %z")
 
 # Use this if you want to include all games to present
-#UNTIL = datetime.today(timezone.utc)
+#SINCE = datetime.strptime("2000.04.27 18:37:42 +0000", "%Y.%m.%d %H:%M:%S %z")
+#UNTIL = datetime.today()
 
 def init():
     for piece in PIECES:
         SCOREBOARD[piece] = chess.Board(fen=None)
+    CONF.read("lc_speedrun.ini")
 
 def print_scoreboard():
     for piece in PIECES:
@@ -70,15 +74,19 @@ def svg_scoreboard():
         open("{}.svg".format(str(piece)), "w").write(chess.svg.board(SCOREBOARD[i]))
 
 def download_games():
-    #print("since", SINCE.timestamp()*1000, SINCE)
-    #print("until", UNTIL.timestamp()*1000+1000, UNTIL)
+    if 'until' not in CONF['DEFAULT']:
+        # TODO: timezone?
+        until = datetime.today()
+    else:
+        until = datetime.strptime(CONF['DEFAULT']['until'], "%Y.%m.%d %H:%M:%S %z")
+    since = datetime.strptime(CONF['DEFAULT']['since'], "%Y.%m.%d %H:%M:%S %z")
     # Add 1 second to until time to make sure we get the final game
     params={
-        'since':int(SINCE.timestamp()*1000),
-        'until':int(UNTIL.timestamp()*1000+1000),
+        'since':int(since.timestamp()*1000),
+        'until':int(until.timestamp()*1000+1000),
         #'max':10,
         'clocks':'true'}
-    url = "https://lichess.org/api/games/user/{}".format(USERNAME)
+    url = "https://lichess.org/api/games/user/{}".format(CONF['DEFAULT']['username'])
     #print("url", url, "params", params)
     response = requests.get(url, params=params)
     content = response.content.decode('utf-8')
@@ -86,7 +94,10 @@ def download_games():
     open("games.pgn", "w").write(content)
 
 def parse_game(game):
-    user_is_white = game.headers['White'] == USERNAME
+    if game.headers['Variant'] != "Standard" or game.headers['TimeControl'] == "-":
+        print("Skipping {} Variant {} TimeControl {}".format(game.headers['Site'], game.headers['Variant'], game.headers['TimeControl']))
+        return False
+    user_is_white = game.headers['White'] == CONF['DEFAULT']['username']
     user_lost = game.headers['Result'] == '0-1' if user_is_white else game.headers['Result'] == '1-0'
     node = game
     m = re.search("(\d+)\+(\d+)", game.headers['TimeControl'])
@@ -124,9 +135,10 @@ def parse_game(game):
     global TIMEUSED_LOSS_PENALTY
     TIMEUSED += used_time
     TIMEUSED_LOSS_PENALTY += scored_time
-    print("url {:20s} new_moves {:3d} used_time {:5d} scored_time {:5d} tottime {:7d} tottime_penalty {:7d}".format(
-        game.headers["Site"], new_moves, used_time, scored_time, TIMEUSED, TIMEUSED_LOSS_PENALTY), end=" ")
+    print("#{:3d} {:20s} new_moves {:3d} used_time {:5d} scored_time {:5d} tottime {:7d} tottime_penalty {:7d}".format(
+        NUMGAMES, game.headers["Site"], new_moves, used_time, scored_time, TIMEUSED, TIMEUSED_LOSS_PENALTY), end=" ")
     print_stats()
+    return True
 
 def parse_pgn():
     pgn = open("games.pgn")
@@ -137,10 +149,11 @@ def parse_pgn():
         games.append(game)
     # lichess returns most recent games first, so reverse them
     for game in reversed(games):
-        parse_game(game)
+        global NUMGAMES
+        if parse_game(game):
+            NUMGAMES += 1
 
 init()
-print_scoreboard()
 # Comment this if you just want to reparse the games.pgn
 download_games()
 parse_pgn()
