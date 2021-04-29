@@ -126,13 +126,17 @@ def parse_game(game):
     TIMEUSED += used_time
     TIMEUSED_LOSS_PENALTY += scored_time
     #print(plies, max_time, used_time, max_time, clk_0, clk_1)
-    print("new_moves", new_moves, "used_time", used_time, "scored_time", scored_time, "TIMEUSED", TIMEUSED, "TIMEUSED_LOSS_PENALTY", TIMEUSED_LOSS_PENALTY)
+    print("url", game.headers["Site"], "new_moves", new_moves, "used_time", used_time, "scored_time", scored_time, "TIMEUSED", TIMEUSED, "TIMEUSED_LOSS_PENALTY", TIMEUSED_LOSS_PENALTY)
 
 def parse_pgn():
     pgn = open("games.pgn")
+    games = []
     while True:
         game = chess.pgn.read_game(pgn)
         if not game: break
+        games.append(game)
+    # lichess returns most recent games first, so reverse them
+    for game in reversed(games):
         parse_game(game)
 
 init()
