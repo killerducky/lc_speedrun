@@ -52,6 +52,11 @@ def print_scoreboard():
     print("Total time:", timedelta(seconds=TIMEUSED))
     print("Total time with loss penalty:", timedelta(seconds=TIMEUSED_LOSS_PENALTY))
 
+def svg_scoreboard():
+    for i in PIECES:
+        piece = chess.Piece(i, chess.WHITE)
+        open("{}.svg".format(str(piece)), "w").write(chess.svg.board(SCOREBOARD[i]))
+
 def download_games():
     print("since", SINCE.timestamp()*1000, SINCE)
     print("until", UNTIL.timestamp()*1000+1000, UNTIL)
@@ -130,4 +135,5 @@ print_scoreboard()
 download_games()
 parse_pgn()
 print_scoreboard()
+svg_scoreboard()
 
