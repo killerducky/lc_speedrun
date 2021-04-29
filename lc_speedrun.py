@@ -13,14 +13,14 @@ TIMEUSED = 0
 TIMEUSED_LOSS_PENALTY = 0
 
 # Last game of CLSmith15's run
-#[Event "Rated Blitz game"]
-#[Site "https://lichess.org/nlWFiG6Z"]
+#[Event "Hourly UltraBullet Arena"]
+#[Site "https://lichess.org/RmmeqiK1"]
 #[Date "2021.04.28"]
-#[White "prof81"]
-#[Black "CLSmith15"]
+#[White "CLSmith15"]
+#[Black "wongo"]
 #[Result "0-1"]
 #[UTCDate "2021.04.28"]
-#[UTCTime "16:33:57"]
+#[UTCTime "01:35:33"]
 
 # First game of CLSmith15's run
 #[Event "Rated Bullet game"]
@@ -35,27 +35,11 @@ TIMEUSED_LOSS_PENALTY = 0
 # Go to the game you want to include, look at the pgn, find these:
 #[UTCDate "2021.04.28"]
 #[UTCTime "16:33:57"]
-#SINCE = datetime.strptime("2022.04.28 17:34:59", "%Y.%m.%d %H:%M:%S")
-#SINCE = datetime.strptime("2021.04.28 16:33:58", "%Y.%m.%d %H:%M:%S")
-#SINCE = datetime.strptime("2021.04.28 16:33:57", "%Y.%m.%d %H:%M:%S")   # orig  vs prof81
-#SINCE = datetime.strptime("2021.04.28 16:33:56", "%Y.%m.%d %H:%M:%S")    # one second before vs prof81
-#SINCE = datetime.strptime("2021.04.28 16:27:49", "%Y.%m.%d %H:%M:%S")    # one second before vs chingis-han
-
-#SINCE = datetime.strptime("2021.04.28 16:27:49", "%Y.%m.%d %H:%M:%S")  # 1 games
-#SINCE = datetime.strptime("2021.04.28 12:27:49", "%Y.%m.%d %H:%M:%S")  # 1 games
-#SINCE = datetime.strptime("2021.04.28 11:27:49", "%Y.%m.%d %H:%M:%S")  # 3 games -- oldest game is [UTCDate "2021.04.28"] [UTCTime "16:27:50"]
-#SINCE = datetime.strptime("2021.04.28 10:27:49", "%Y.%m.%d %H:%M:%S")  # 4 games -- oldest game is [UTCDate "2021.04.28"] [UTCTime "16:21:44"] 4th game?
-# Seems to be a 5 hour difference, and I'm GMT-5...
-# But I don't see why timezones matter?
-#SINCE = datetime.strptime("2021.04.28 6:27:49", "%Y.%m.%d %H:%M:%S")  # 4 games
-#SINCE = datetime.strptime("2021.04.28 01:27:49", "%Y.%m.%d %H:%M:%S")  # 4 games
-#SINCE = datetime.strptime("2021.04.28 1:27:49", "%Y.%m.%d %H:%M:%S")  # 4 games
-#SINCE = datetime.strptime("2021.04.27 16:27:49", "%Y.%m.%d %H:%M:%S")  # 10 games
-SINCE = datetime.strptime("2021.04.26 16:27:49", "%Y.%m.%d %H:%M:%S")  # 10 games
-UNTIL = datetime.strptime("2021.04.28 20:17:26", "%Y.%m.%d %H:%M:%S")
+SINCE = datetime.strptime("2021.04.27 18:37:42 +0000", "%Y.%m.%d %H:%M:%S %z")
+UNTIL = datetime.strptime("2021.04.28 01:35:33 +0000", "%Y.%m.%d %H:%M:%S %z")
 
 # Use this if you want to include all games to present
-#UNTIL = datetime.today()
+#UNTIL = datetime.today(timezone.utc)
 
 def init():
     for piece in PIECES:
@@ -70,10 +54,11 @@ def print_scoreboard():
 
 def download_games():
     print("since", SINCE.timestamp()*1000, SINCE)
-    print("until", UNTIL.timestamp()*1000, UNTIL)
+    print("until", UNTIL.timestamp()*1000+1000, UNTIL)
+    # Add 1 second to until time to make sure we get the final game
     params={
         'since':int(SINCE.timestamp()*1000),
-        'until':int(UNTIL.timestamp()*1000),
+        'until':int(UNTIL.timestamp()*1000+1000),
         #'max':10,
         'clocks':'true'}
     url = "https://lichess.org/api/games/user/{}".format(USERNAME)
@@ -142,7 +127,7 @@ def parse_pgn():
 init()
 print_scoreboard()
 # Comment this if you just want to reparse the games.pgn
-#download_games()
+download_games()
 parse_pgn()
 print_scoreboard()
 
