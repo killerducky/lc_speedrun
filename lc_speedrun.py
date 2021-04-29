@@ -6,6 +6,8 @@ import chess.pgn
 import re
 from datetime import datetime, timedelta, timezone
 import configparser
+import os
+import sys
 
 CONF = configparser.ConfigParser()
 PIECES = [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]
@@ -13,36 +15,7 @@ SCOREBOARD = {}
 TIMEUSED = 0
 TIMEUSED_LOSS_PENALTY = 0
 NUMGAMES = 0
-
-# Last game of CLSmith15's run
-#[Event "Hourly UltraBullet Arena"]
-#[Site "https://lichess.org/RmmeqiK1"]
-#[Date "2021.04.28"]
-#[White "CLSmith15"]
-#[Black "wongo"]
-#[Result "0-1"]
-#[UTCDate "2021.04.28"]
-#[UTCTime "01:35:33"]
-
-# First game of CLSmith15's run
-#[Event "Rated Bullet game"]
-#[Site "https://lichess.org/vvktNmSG"]
-#[Date "2021.04.27"]
-#[White "gabbba10"]
-#[Black "CLSmith15"]
-#[Result "1-0"]
-#[UTCDate "2021.04.27"]
-#[UTCTime "18:37:42"]
-
-# Go to the game you want to include, look at the pgn, find these:
-#[UTCDate "2021.04.28"]
-#[UTCTime "16:33:57"]
-#SINCE = datetime.strptime("2021.04.27 18:37:42 +0000", "%Y.%m.%d %H:%M:%S %z")
-#UNTIL = datetime.strptime("2021.04.28 01:35:33 +0000", "%Y.%m.%d %H:%M:%S %z")
-
-# Use this if you want to include all games to present
-#SINCE = datetime.strptime("2000.04.27 18:37:42 +0000", "%Y.%m.%d %H:%M:%S %z")
-#UNTIL = datetime.today()
+TIMEFORMAT = "%Y.%m.%d %H:%M:%S %z"
 
 def init():
     for piece in PIECES:
@@ -71,27 +44,39 @@ def print_stats():
 def svg_scoreboard():
     for i in PIECES:
         piece = chess.Piece(i, chess.WHITE)
-        open("{}.svg".format(str(piece)), "w").write(chess.svg.board(SCOREBOARD[i]))
+        open("{}.svg".format(str(piece)), "w").write(chess.svg.board(SCOREBOARD[i], size=CONF['svg']['size'], colors=CONF['svg']))
 
 def download_games():
-    if 'until' not in CONF['DEFAULT']:
+    if 'until' not in CONF['DEFAULT'] or CONF['DEFAULT']['until'] == "None":
         # TODO: timezone?
         until = datetime.today()
     else:
-        until = datetime.strptime(CONF['DEFAULT']['until'], "%Y.%m.%d %H:%M:%S %z")
-    since = datetime.strptime(CONF['DEFAULT']['since'], "%Y.%m.%d %H:%M:%S %z")
+        until = datetime.strptime(CONF['DEFAULT']['until'], TIMEFORMAT)
+    since = datetime.strptime(CONF['DEFAULT']['since'], TIMEFORMAT)
+    pgn_data = ""
+    if os.path.exists("games.pgn"):
+        pgn = open("games.pgn")
+        game = chess.pgn.read_game(pgn)
+        if game:
+            since = "{} {} +0000".format(game.headers['UTCDate'], game.headers['UTCTime'])
+            # Add 1 second to make sure we skip this game that we have in the pgn already
+            since = datetime.strptime(since, TIMEFORMAT) + timedelta(seconds=1)
+            pgn_data = open("games.pgn").read()
     # Add 1 second to until time to make sure we get the final game
+    until += timedelta(seconds=1)
     params={
         'since':int(since.timestamp()*1000),
-        'until':int(until.timestamp()*1000+1000),
+        'until':int(until.timestamp()*1000),
         #'max':10,
         'clocks':'true'}
     url = "https://lichess.org/api/games/user/{}".format(CONF['DEFAULT']['username'])
     #print("url", url, "params", params)
     response = requests.get(url, params=params)
     content = response.content.decode('utf-8')
-    #print(content)
-    open("games.pgn", "w").write(content)
+    if not content:
+        print("No new games, do not overwrite games.pgn")
+    else:
+        open("games.pgn", "w").write(content + pgn_data)
 
 def parse_game(game):
     if game.headers['Variant'] != "Standard" or game.headers['TimeControl'] == "-":
