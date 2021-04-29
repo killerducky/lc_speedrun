@@ -10,6 +10,28 @@ USERNAME = "CLSmith15"
 PIECES = [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]
 SCOREBOARD = {}
 TIMEUSED = 0
+TIMEUSED_LOSS_PENALTY = 0
+
+# Last game of CLSmith15's run
+#[Event "Rated Blitz game"]
+#[Site "https://lichess.org/nlWFiG6Z"]
+#[Date "2021.04.28"]
+#[White "prof81"]
+#[Black "CLSmith15"]
+#[Result "0-1"]
+#[UTCDate "2021.04.28"]
+#[UTCTime "16:33:57"]
+
+# First game of CLSmith15's run
+#[Event "Rated Bullet game"]
+#[Site "https://lichess.org/vvktNmSG"]
+#[Date "2021.04.27"]
+#[White "gabbba10"]
+#[Black "CLSmith15"]
+#[Result "1-0"]
+#[UTCDate "2021.04.27"]
+#[UTCTime "18:37:42"]
+
 # Go to the game you want to include, look at the pgn, find these:
 #[UTCDate "2021.04.28"]
 #[UTCTime "16:33:57"]
@@ -17,9 +39,23 @@ TIMEUSED = 0
 #SINCE = datetime.strptime("2021.04.28 16:33:58", "%Y.%m.%d %H:%M:%S")
 #SINCE = datetime.strptime("2021.04.28 16:33:57", "%Y.%m.%d %H:%M:%S")   # orig  vs prof81
 #SINCE = datetime.strptime("2021.04.28 16:33:56", "%Y.%m.%d %H:%M:%S")    # one second before vs prof81
-SINCE = datetime.strptime("2021.04.28 16:27:49", "%Y.%m.%d %H:%M:%S")    # one second before vs chingis-han
+#SINCE = datetime.strptime("2021.04.28 16:27:49", "%Y.%m.%d %H:%M:%S")    # one second before vs chingis-han
+
+#SINCE = datetime.strptime("2021.04.28 16:27:49", "%Y.%m.%d %H:%M:%S")  # 1 games
+#SINCE = datetime.strptime("2021.04.28 12:27:49", "%Y.%m.%d %H:%M:%S")  # 1 games
+#SINCE = datetime.strptime("2021.04.28 11:27:49", "%Y.%m.%d %H:%M:%S")  # 3 games -- oldest game is [UTCDate "2021.04.28"] [UTCTime "16:27:50"]
+#SINCE = datetime.strptime("2021.04.28 10:27:49", "%Y.%m.%d %H:%M:%S")  # 4 games -- oldest game is [UTCDate "2021.04.28"] [UTCTime "16:21:44"] 4th game?
+# Seems to be a 5 hour difference, and I'm GMT-5...
+# But I don't see why timezones matter?
+#SINCE = datetime.strptime("2021.04.28 6:27:49", "%Y.%m.%d %H:%M:%S")  # 4 games
+#SINCE = datetime.strptime("2021.04.28 01:27:49", "%Y.%m.%d %H:%M:%S")  # 4 games
+#SINCE = datetime.strptime("2021.04.28 1:27:49", "%Y.%m.%d %H:%M:%S")  # 4 games
+#SINCE = datetime.strptime("2021.04.27 16:27:49", "%Y.%m.%d %H:%M:%S")  # 10 games
+SINCE = datetime.strptime("2021.04.26 16:27:49", "%Y.%m.%d %H:%M:%S")  # 10 games
+UNTIL = datetime.strptime("2021.04.28 20:17:26", "%Y.%m.%d %H:%M:%S")
+
 # Use this if you want to include all games to present
-UNTIL = datetime.today()
+#UNTIL = datetime.today()
 
 def init():
     for piece in PIECES:
@@ -29,13 +65,17 @@ def print_scoreboard():
     for piece in PIECES:
         print(SCOREBOARD[piece])
         print()
-    td = timedelta(seconds=TIMEUSED)
-    print("Total time:", td)
+    print("Total time:", timedelta(seconds=TIMEUSED))
+    print("Total time with loss penalty:", timedelta(seconds=TIMEUSED_LOSS_PENALTY))
 
 def download_games():
     print("since", SINCE.timestamp()*1000, SINCE)
     print("until", UNTIL.timestamp()*1000, UNTIL)
-    params={'since':int(SINCE.timestamp()*1000), 'until':int(UNTIL.timestamp()*1000), 'max':10, 'clocks':'true'}
+    params={
+        'since':int(SINCE.timestamp()*1000),
+        'until':int(UNTIL.timestamp()*1000),
+        #'max':10,
+        'clocks':'true'}
     url = "https://lichess.org/api/games/user/{}".format(USERNAME)
     print("url", url, "params", params)
     response = requests.get(url, params=params)
@@ -65,6 +105,8 @@ def parse_game(game):
         (h, m, s) = m.groups()
         clk_1 = int(h)*60 + int(m)*60 + int(s)
         piece = node.board().piece_at(node.move.to_square)
+        if node.move.promotion:
+            piece = chess.Piece(chess.PAWN, chess.WHITE)
         plies = node.ply()
         if (plies%2==1 if user_is_white else plies%2==0):
             print(node.move, chess.SQUARE_NAMES[node.move.to_square], node.comment, plies, clk_1, piece)
@@ -80,9 +122,11 @@ def parse_game(game):
     # the user will try to win or draw to scored time
     scored_time = max_time if user_lost else used_time
     global TIMEUSED
-    TIMEUSED += scored_time
+    global TIMEUSED_LOSS_PENALTY
+    TIMEUSED += used_time
+    TIMEUSED_LOSS_PENALTY += scored_time
     #print(plies, max_time, used_time, max_time, clk_0, clk_1)
-    print("new_moves", new_moves, "used_time", used_time, "scored_time", scored_time, "TIMEUSED", TIMEUSED)
+    print("new_moves", new_moves, "used_time", used_time, "scored_time", scored_time, "TIMEUSED", TIMEUSED, "TIMEUSED_LOSS_PENALTY", TIMEUSED_LOSS_PENALTY)
 
 def parse_pgn():
     pgn = open("games.pgn")
@@ -90,11 +134,11 @@ def parse_pgn():
         game = chess.pgn.read_game(pgn)
         if not game: break
         parse_game(game)
-    print_scoreboard()
 
 init()
 print_scoreboard()
 # Comment this if you just want to reparse the games.pgn
-download_games()
+#download_games()
 parse_pgn()
+print_scoreboard()
 
