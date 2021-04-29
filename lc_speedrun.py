@@ -52,14 +52,26 @@ def print_scoreboard():
     print("Total time:", timedelta(seconds=TIMEUSED))
     print("Total time with loss penalty:", timedelta(seconds=TIMEUSED_LOSS_PENALTY))
 
+def print_stats():
+    total = 0
+    promotions = 0
+    for piece in PIECES:
+        for square in range(64):
+            if SCOREBOARD[piece].piece_at(square):
+                total += 1
+    for square in (list(range(8)) + list(range(64-8,64))):
+        if SCOREBOARD[chess.PAWN].piece_at(square):
+            promotions += 1
+    print("Total {:3d} out of {} promotions {:2d} out of {}".format(total, 6*64, promotions, 16))
+
 def svg_scoreboard():
     for i in PIECES:
         piece = chess.Piece(i, chess.WHITE)
         open("{}.svg".format(str(piece)), "w").write(chess.svg.board(SCOREBOARD[i]))
 
 def download_games():
-    print("since", SINCE.timestamp()*1000, SINCE)
-    print("until", UNTIL.timestamp()*1000+1000, UNTIL)
+    #print("since", SINCE.timestamp()*1000, SINCE)
+    #print("until", UNTIL.timestamp()*1000+1000, UNTIL)
     # Add 1 second to until time to make sure we get the final game
     params={
         'since':int(SINCE.timestamp()*1000),
@@ -67,16 +79,13 @@ def download_games():
         #'max':10,
         'clocks':'true'}
     url = "https://lichess.org/api/games/user/{}".format(USERNAME)
-    print("url", url, "params", params)
+    #print("url", url, "params", params)
     response = requests.get(url, params=params)
     content = response.content.decode('utf-8')
-    print(content)
+    #print(content)
     open("games.pgn", "w").write(content)
 
 def parse_game(game):
-    print(game.headers['TimeControl'])
-    print(game.headers['Result'])
-    print(game.headers['White'] == USERNAME)
     user_is_white = game.headers['White'] == USERNAME
     user_lost = game.headers['Result'] == '0-1' if user_is_white else game.headers['Result'] == '1-0'
     node = game
@@ -93,17 +102,17 @@ def parse_game(game):
         clk_0 = clk_1
         m = re.search("\[\%clk (\d+):(\d+):(\d+)", node.comment)
         (h, m, s) = m.groups()
-        clk_1 = int(h)*60 + int(m)*60 + int(s)
+        clk_1 = int(h)*60*60 + int(m)*60 + int(s)
         piece = node.board().piece_at(node.move.to_square)
         if node.move.promotion:
             piece = chess.Piece(chess.PAWN, chess.WHITE)
         plies = node.ply()
         if (plies%2==1 if user_is_white else plies%2==0):
-            print(node.move, chess.SQUARE_NAMES[node.move.to_square], node.comment, plies, clk_1, piece)
+            #print(node.move, chess.SQUARE_NAMES[node.move.to_square], node.comment, plies, clk_1, piece)
             if not SCOREBOARD[piece.piece_type].piece_at(node.move.to_square):
                 piece.color = chess.WHITE # Just store all as white (capital letter) pieces
                 SCOREBOARD[piece.piece_type].set_piece_at(node.move.to_square, piece)
-                print(SCOREBOARD[piece.piece_type])
+                #print(SCOREBOARD[piece.piece_type])
                 new_moves += 1
     max_time = time_main*2 + time_inc*plies
     used_time = max_time - clk_0 - clk_1
@@ -115,8 +124,9 @@ def parse_game(game):
     global TIMEUSED_LOSS_PENALTY
     TIMEUSED += used_time
     TIMEUSED_LOSS_PENALTY += scored_time
-    #print(plies, max_time, used_time, max_time, clk_0, clk_1)
-    print("url", game.headers["Site"], "new_moves", new_moves, "used_time", used_time, "scored_time", scored_time, "TIMEUSED", TIMEUSED, "TIMEUSED_LOSS_PENALTY", TIMEUSED_LOSS_PENALTY)
+    print("url {:20s} new_moves {:3d} used_time {:5d} scored_time {:5d} tottime {:7d} tottime_penalty {:7d}".format(
+        game.headers["Site"], new_moves, used_time, scored_time, TIMEUSED, TIMEUSED_LOSS_PENALTY), end=" ")
+    print_stats()
 
 def parse_pgn():
     pgn = open("games.pgn")
