@@ -44,21 +44,24 @@ def print_stats(save):
         if SCOREBOARD[chess.PAWN]['board'].piece_at(square):
             promotions += 1
     print("Promotions {:2d} out of {}".format(promotions, 16))
-    s = "Moves played: {} / {} {:3.1f}%  Time Used {}".format(
-        total, 6*64, 100.0*total/6/64, timedelta(seconds=TIMEUSED_LOSS_PENALTY))
-    print(s)
     if save:
         with open("total.txt", "w") as f:
-            f.write(s+"\n")
+            f.write("Moves played: {} / {} {:3.1f}%  Time Used {}\n".format(
+                total, 6*64, 100.0*total/6/64, timedelta(seconds=TIMEUSED_LOSS_PENALTY)))
+            f.write("Games: {} Promotions{:2d}/16\n".format(
+                NUMGAMES, promotions))
 
 def svg_scoreboard():
     images = []
     for i in PIECES:
         piece = chess.Piece(i, chess.WHITE)
-        with open("{}.svg".format(str(piece)), "w") as f:
+        with open("white_{}.svg".format(str(piece)), "w") as f:
             f.write(chess.svg.board(SCOREBOARD[i]['board'], size=CONF['svg']['size'], colors=CONF['svg'], arrows=SCOREBOARD[i]['new']))
-        cairosvg.svg2png(url="{}.svg".format(str(piece)), write_to="{}.png".format(str(piece)))
-        images.append(Image.open("{}.png".format(str(piece))))
+        cairosvg.svg2png(url="white_{}.svg".format(str(piece)), write_to="white_{}.png".format(str(piece)))
+        black = Image.open("white_{}.png".format(str(piece)))
+        black = black.rotate(180)
+        black.save("black_{}.png".format(str(piece)))
+        images.append(Image.open("white_{}.png".format(str(piece))))
     (width, height) = images[0].size
     pad = int(CONF['svg']['pad'])
     all_image = Image.new('RGB', (width*3 + pad*4, height*2 + pad*3))
@@ -103,7 +106,7 @@ def download_games():
         open("games.pgn", "w").write(content + pgn_data)
 
 def parse_game(game):
-    if game.headers['Variant'] != "Standard" or game.headers['TimeControl'] == "-":
+    if game.headers['Variant'] != "Standard" or game.headers['TimeControl'] == "-" or not game.headers['Event'].startswith("Rated"):
         print("Skipping {} Variant {} TimeControl {}".format(game.headers['Site'], game.headers['Variant'], game.headers['TimeControl']))
         return False
     for piece in PIECES:
