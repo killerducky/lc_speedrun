@@ -9,6 +9,7 @@ import configparser
 import os
 import sys
 import cairosvg
+from PIL import Image
 
 CONF = configparser.ConfigParser()
 PIECES = [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]
@@ -51,11 +52,21 @@ def print_stats(save):
             f.write(s+"\n")
 
 def svg_scoreboard():
+    images = []
     for i in PIECES:
         piece = chess.Piece(i, chess.WHITE)
         with open("{}.svg".format(str(piece)), "w") as f:
             f.write(chess.svg.board(SCOREBOARD[i]['board'], size=CONF['svg']['size'], colors=CONF['svg'], arrows=SCOREBOARD[i]['new']))
         cairosvg.svg2png(url="{}.svg".format(str(piece)), write_to="{}.png".format(str(piece)))
+        images.append(Image.open("{}.png".format(str(piece))))
+    (width, height) = images[0].size
+    pad = int(CONF['svg']['pad'])
+    all_image = Image.new('RGB', (width*3 + pad*4, height*2 + pad*3))
+    for i in range(6):
+        x = i%3
+        y = i//3
+        all_image.paste(images[i], (pad+x*(width+pad), pad+y*(height+pad)))
+    all_image.save("all.png")
 
 def download_games():
     if 'until' not in CONF['DEFAULT'] or CONF['DEFAULT']['until'] == "None":
