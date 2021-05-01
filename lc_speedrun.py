@@ -20,12 +20,14 @@ TIMEFORMAT = "%Y.%m.%d %H:%M:%S %z"
 
 def init():
     for piece in PIECES:
-        SCOREBOARD[piece] = chess.Board(fen=None)
+        SCOREBOARD[piece] = {}
+        SCOREBOARD[piece]['board'] = chess.Board(fen=None)
+        SCOREBOARD[piece]['new'] = ()
     CONF.read("lc_speedrun.ini")
 
 def print_scoreboard():
     for piece in PIECES:
-        print(SCOREBOARD[piece])
+        print(SCOREBOARD[piece]['board'])
         print()
     print("Total time:", timedelta(seconds=TIMEUSED))
     print("Total time with loss penalty:", timedelta(seconds=TIMEUSED_LOSS_PENALTY))
@@ -35,21 +37,24 @@ def print_stats(save):
     promotions = 0
     for piece in PIECES:
         for square in range(64):
-            if SCOREBOARD[piece].piece_at(square):
+            if SCOREBOARD[piece]['board'].piece_at(square):
                 total += 1
     for square in (list(range(8)) + list(range(64-8,64))):
-        if SCOREBOARD[chess.PAWN].piece_at(square):
+        if SCOREBOARD[chess.PAWN]['board'].piece_at(square):
             promotions += 1
-    print("Total {:3d} out of {} promotions {:2d} out of {}".format(total, 6*64, promotions, 16))
+    print("Promotions {:2d} out of {}".format(promotions, 16))
+    s = "Moves played: {} / {} {:3.1f}%  Time Used {}".format(
+        total, 6*64, 100.0*total/6/64, timedelta(seconds=TIMEUSED_LOSS_PENALTY))
+    print(s)
     if save:
         with open("total.txt", "w") as f:
-            f.write("Moves played: {} / {} {:3.1f}%  Time Used {}\n".format(
-                total, 6*64, 100.0*total/6/64, timedelta(seconds=TIMEUSED_LOSS_PENALTY)))
+            f.write(s+"\n")
 
 def svg_scoreboard():
     for i in PIECES:
         piece = chess.Piece(i, chess.WHITE)
-        open("{}.svg".format(str(piece)), "w").write(chess.svg.board(SCOREBOARD[i], size=CONF['svg']['size'], colors=CONF['svg']))
+        with open("{}.svg".format(str(piece)), "w") as f:
+            f.write(chess.svg.board(SCOREBOARD[i]['board'], size=CONF['svg']['size'], colors=CONF['svg'], arrows=SCOREBOARD[i]['new']))
         cairosvg.svg2png(url="{}.svg".format(str(piece)), write_to="{}.png".format(str(piece)))
 
 def download_games():
@@ -90,6 +95,8 @@ def parse_game(game):
     if game.headers['Variant'] != "Standard" or game.headers['TimeControl'] == "-":
         print("Skipping {} Variant {} TimeControl {}".format(game.headers['Site'], game.headers['Variant'], game.headers['TimeControl']))
         return False
+    for piece in PIECES:
+        SCOREBOARD[piece]['new'] = []
     user_is_white = game.headers['White'] == CONF['DEFAULT']['username']
     user_lost = game.headers['Result'] == '0-1' if user_is_white else game.headers['Result'] == '1-0'
     node = game
@@ -105,7 +112,6 @@ def parse_game(game):
         node = node.variations[0]
         clk_0 = clk_1
         m = re.search("\[\%clk (\d+):(\d+):(\d+)", node.comment)
-        print(node)
         (h, m, s) = m.groups()
         clk_1 = int(h)*60*60 + int(m)*60 + int(s)
         piece = node.board().piece_at(node.move.to_square)
@@ -114,10 +120,11 @@ def parse_game(game):
         plies = node.ply()
         if (plies%2==1 if user_is_white else plies%2==0):
             #print(node.move, chess.SQUARE_NAMES[node.move.to_square], node.comment, plies, clk_1, piece)
-            if not SCOREBOARD[piece.piece_type].piece_at(node.move.to_square):
+            if not SCOREBOARD[piece.piece_type]['board'].piece_at(node.move.to_square):
                 piece.color = chess.WHITE # Just store all as white (capital letter) pieces
-                SCOREBOARD[piece.piece_type].set_piece_at(node.move.to_square, piece)
-                #print(SCOREBOARD[piece.piece_type])
+                SCOREBOARD[piece.piece_type]['board'].set_piece_at(node.move.to_square, piece)
+                SCOREBOARD[piece.piece_type]['new'].append((node.move.to_square, node.move.to_square))
+                #print(SCOREBOARD[piece.piece_type]['board'])
                 new_moves += 1
     max_time = time_main*2 + time_inc*plies
     used_time = max_time - clk_0 - clk_1
