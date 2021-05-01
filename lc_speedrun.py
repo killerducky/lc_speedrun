@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import configparser
 import os
 import sys
+import cairosvg
 
 CONF = configparser.ConfigParser()
 PIECES = [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]
@@ -29,7 +30,7 @@ def print_scoreboard():
     print("Total time:", timedelta(seconds=TIMEUSED))
     print("Total time with loss penalty:", timedelta(seconds=TIMEUSED_LOSS_PENALTY))
 
-def print_stats():
+def print_stats(save):
     total = 0
     promotions = 0
     for piece in PIECES:
@@ -40,16 +41,21 @@ def print_stats():
         if SCOREBOARD[chess.PAWN].piece_at(square):
             promotions += 1
     print("Total {:3d} out of {} promotions {:2d} out of {}".format(total, 6*64, promotions, 16))
+    if save:
+        with open("total.txt", "w") as f:
+            f.write("Moves played: {} / {} {:3.1f}%  Time Used {}\n".format(
+                total, 6*64, 100.0*total/6/64, timedelta(seconds=TIMEUSED_LOSS_PENALTY)))
 
 def svg_scoreboard():
     for i in PIECES:
         piece = chess.Piece(i, chess.WHITE)
         open("{}.svg".format(str(piece)), "w").write(chess.svg.board(SCOREBOARD[i], size=CONF['svg']['size'], colors=CONF['svg']))
+        cairosvg.svg2png(url="{}.svg".format(str(piece)), write_to="{}.png".format(str(piece)))
 
 def download_games():
     if 'until' not in CONF['DEFAULT'] or CONF['DEFAULT']['until'] == "None":
         # TODO: timezone?
-        until = datetime.today()
+        until = datetime.utcnow()
     else:
         until = datetime.strptime(CONF['DEFAULT']['until'], TIMEFORMAT)
     since = datetime.strptime(CONF['DEFAULT']['since'], TIMEFORMAT)
@@ -61,6 +67,7 @@ def download_games():
             since = "{} {} +0000".format(game.headers['UTCDate'], game.headers['UTCTime'])
             # Add 1 second to make sure we skip this game that we have in the pgn already
             since = datetime.strptime(since, TIMEFORMAT) + timedelta(seconds=1)
+            print("Pre-existing games.pgn found. Change since to: {}", since)
             pgn_data = open("games.pgn").read()
     # Add 1 second to until time to make sure we get the final game
     until += timedelta(seconds=1)
@@ -70,7 +77,8 @@ def download_games():
         #'max':10,
         'clocks':'true'}
     url = "https://lichess.org/api/games/user/{}".format(CONF['DEFAULT']['username'])
-    #print("url", url, "params", params)
+    print("since={} until={}".format(since, until))
+    print("url", url, "params", params)
     response = requests.get(url, params=params)
     content = response.content.decode('utf-8')
     if not content:
@@ -97,6 +105,7 @@ def parse_game(game):
         node = node.variations[0]
         clk_0 = clk_1
         m = re.search("\[\%clk (\d+):(\d+):(\d+)", node.comment)
+        print(node)
         (h, m, s) = m.groups()
         clk_1 = int(h)*60*60 + int(m)*60 + int(s)
         piece = node.board().piece_at(node.move.to_square)
@@ -122,10 +131,11 @@ def parse_game(game):
     TIMEUSED_LOSS_PENALTY += scored_time
     print("#{:3d} {:20s} new_moves {:3d} used_time {:5d} scored_time {:5d} tottime {:7d} tottime_penalty {:7d}".format(
         NUMGAMES, game.headers["Site"], new_moves, used_time, scored_time, TIMEUSED, TIMEUSED_LOSS_PENALTY), end=" ")
-    print_stats()
+    print_stats(False)
     return True
 
 def parse_pgn():
+    if not os.path.exists("games.pgn"): return
     pgn = open("games.pgn")
     games = []
     while True:
@@ -144,4 +154,4 @@ download_games()
 parse_pgn()
 print_scoreboard()
 svg_scoreboard()
-
+print_stats(True)
