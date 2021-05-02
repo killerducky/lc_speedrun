@@ -10,6 +10,8 @@ import os
 import sys
 import cairosvg
 from PIL import Image
+from pathlib import Path
+import imageio
 
 CONF = configparser.ConfigParser()
 PIECES = [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]
@@ -69,6 +71,7 @@ def svg_scoreboard():
         x = i%3
         y = i//3
         all_image.paste(images[i], (pad+x*(width+pad), pad+y*(height+pad)))
+    all_image.save("all-{:05d}.png".format(NUMGAMES))
     all_image.save("all.png")
 
 def download_games():
@@ -106,7 +109,7 @@ def download_games():
         open("games.pgn", "w").write(content + pgn_data)
 
 def parse_game(game):
-    if game.headers['Variant'] != "Standard" or game.headers['TimeControl'] == "-" or not game.headers['Event'].startswith("Rated"):
+    if game.headers['Variant'] != "Standard" or game.headers['TimeControl'] == "-" or 'WhiteRatingDiff' not in game.headers:
         print("Skipping {} Variant {} TimeControl {}".format(game.headers['Site'], game.headers['Variant'], game.headers['TimeControl']))
         return False
     for piece in PIECES:
@@ -168,6 +171,15 @@ def parse_pgn():
         global NUMGAMES
         if parse_game(game):
             NUMGAMES += 1
+            if 'animate' in CONF['DEFAULT'] and CONF['DEFAULT']['animate'] == "yes":
+                svg_scoreboard()
+
+def animate_scoreboard():
+    images = list(sorted(Path('.').glob('all-*.png')))
+    image_list = []
+    for fn in images:
+        image_list.append(imageio.imread(fn))
+    imageio.mimwrite('animate.gif', image_list, fps=CONF['DEFAULT']['fps'])
 
 init()
 # Comment this if you just want to reparse the games.pgn
@@ -176,3 +188,5 @@ parse_pgn()
 print_scoreboard()
 svg_scoreboard()
 print_stats(True)
+if 'animate' in CONF['DEFAULT'] and CONF['DEFAULT']['animate'] == "yes":
+    animate_scoreboard()
