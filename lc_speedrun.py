@@ -160,6 +160,13 @@ def parse_game(game):
     if game.headers['Termination'] == "Time forfeit":
         clk_0 = clk_1
         clk_1 = 0
+    elif not node.board().is_checkmate() and not game.headers['Result'] == '1/2-1/2':
+        if (plies%2==0 if user_is_white else plies%2==1):
+            print("User {} resigned!".format(CONF['DEFAULT']['username']))
+            clk_0 = 0
+            clk_1 = 0
+        # else: We don't know how long the opponent thought before resigning
+        # Just don't account for that time
     max_time = time_main_user[0] + time_main_user[1] + time_inc*plies
     used_time = max_time - clk_0 - clk_1
     # Penalize losses by using max game time
