@@ -155,6 +155,11 @@ def parse_game(game):
                 SCOREBOARD[piece.piece_type]['new'].append((node.move.to_square, node.move.to_square))
                 #print(SCOREBOARD[piece.piece_type]['board'])
                 new_moves += 1
+    # If they flag, the game ends.
+    # Act like it's another ply and shift clk_0 and zero out clk_1
+    if game.headers['Termination'] == "Time forfeit":
+        clk_0 = clk_1
+        clk_1 = 0
     max_time = time_main_user[0] + time_main_user[1] + time_inc*plies
     used_time = max_time - clk_0 - clk_1
     # Penalize losses by using max game time
