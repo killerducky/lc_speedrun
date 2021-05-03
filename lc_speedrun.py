@@ -29,9 +29,10 @@ def init():
     CONF.read("lc_speedrun.ini")
 
 def print_scoreboard():
+    s = [""]*8
     for piece in PIECES:
-        print(SCOREBOARD[piece]['board'])
-        print()
+        s = ['   '.join(pair) for pair in zip(s, str(SCOREBOARD[piece]['board']).splitlines())]
+    [print(line) for line in s]
     print("Total time:", timedelta(seconds=TIMEUSED))
     print("Total time with loss penalty:", timedelta(seconds=TIMEUSED_LOSS_PENALTY))
 
@@ -48,9 +49,13 @@ def print_stats(save):
     print("Promotions {:2d} out of {}".format(promotions, 16))
     if save:
         with open("total.txt", "w") as f:
+            if 'timeused_loss_penalty' in CONF['DEFAULT'] and CONF['DEFAULT']['timeused_loss_penalty'] == 'yes':
+                t = TIMEUSED_LOSS_PENALTY
+            else:
+                t = TIMEUSED
             f.write("Moves played: {} / {} {:3.1f}%  Time Used {}\n".format(
-                total, 6*64, 100.0*total/6/64, timedelta(seconds=TIMEUSED_LOSS_PENALTY)))
-            f.write("Games: {} Promotions{:2d}/16\n".format(
+                total, 6*64, 100.0*total/6/64, timedelta(seconds=t)))
+            f.write("Games: {} Promotions {:2d}/16\n".format(
                 NUMGAMES, promotions))
 
 def svg_scoreboard():
@@ -121,6 +126,8 @@ def parse_game(game):
     (time_main, time_inc) = m.groups()
     time_main = int(time_main)
     time_inc = int(time_inc)
+    # Handle beserk
+    time_main_user = [time_main, time_main]
     clk_0 = time_main
     clk_1 = time_main
     plies = 0
@@ -131,6 +138,9 @@ def parse_game(game):
         m = re.search("\[\%clk (\d+):(\d+):(\d+)", node.comment)
         (h, m, s) = m.groups()
         clk_1 = int(h)*60*60 + int(m)*60 + int(s)
+        if plies < 2:
+            # In case someone does beserk, we need to use this clock time instead of the one from header
+            time_main_user[plies] = clk_1
         piece = node.board().piece_at(node.move.to_square)
         if node.move.promotion:
             piece = chess.Piece(chess.PAWN, chess.WHITE)
@@ -143,7 +153,7 @@ def parse_game(game):
                 SCOREBOARD[piece.piece_type]['new'].append((node.move.to_square, node.move.to_square))
                 #print(SCOREBOARD[piece.piece_type]['board'])
                 new_moves += 1
-    max_time = time_main*2 + time_inc*plies
+    max_time = time_main_user[0] + time_main_user[1] + time_inc*plies
     used_time = max_time - clk_0 - clk_1
     # Penalize losses by using max game time
     # Even if games are not useful for covering new squares,
@@ -153,8 +163,8 @@ def parse_game(game):
     global TIMEUSED_LOSS_PENALTY
     TIMEUSED += used_time
     TIMEUSED_LOSS_PENALTY += scored_time
-    print("#{:3d} {:20s} new_moves {:3d} used_time {:5d} scored_time {:5d} tottime {:7d} tottime_penalty {:7d}".format(
-        NUMGAMES, game.headers["Site"], new_moves, used_time, scored_time, TIMEUSED, TIMEUSED_LOSS_PENALTY), end=" ")
+    print("#{:3d} {:20s} new_moves {:3d} used_time {:5d} scored_time {:5d} tottime {:7s} tottime_penalty {:7s}".format(
+        NUMGAMES, game.headers["Site"], new_moves, used_time, scored_time, str(timedelta(seconds=TIMEUSED)), str(timedelta(seconds=TIMEUSED_LOSS_PENALTY))), end=" ")
     print_stats(False)
     return True
 

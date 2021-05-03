@@ -7,10 +7,15 @@ To prevent throwing games to save time, the code assigns the full game time for 
 
 ## Running:
 - Install python
-- Install required python modules:
-    - `pip3 install -r requirements.txt`
+- Install required python modules. On windows:
+    - Run `cmd.exe`
+    - `cd c:\path\to\lc_speedrun`
+    - `python3 -m pip install -r requirements.txt`
 - edit lc\_speedrun.ini
 - python3 lc\_speedrun.py
+
+- Script assumes everything in games.pgn is included in the run.
+    - If you start a new run, delete games.pgn manually
 
 ## Output:
 Prints to stdout stats for each game, and final boards in ASCII.
