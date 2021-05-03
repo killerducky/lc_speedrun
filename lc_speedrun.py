@@ -120,6 +120,8 @@ def parse_game(game):
     for piece in PIECES:
         SCOREBOARD[piece]['new'] = []
     user_is_white = game.headers['White'] == CONF['DEFAULT']['username']
+    if not user_is_white and game.headers['Black'] != CONF['DEFAULT']['username']:
+        sys.exit("Error: username {} not in game {} (delete games.pgn if starting a new run)".format(CONF['DEFAULT']['username'], game.headers['Site']))
     user_lost = game.headers['Result'] == '0-1' if user_is_white else game.headers['Result'] == '1-0'
     node = game
     m = re.search("(\d+)\+(\d+)", game.headers['TimeControl'])
