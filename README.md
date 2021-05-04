@@ -7,19 +7,24 @@ To prevent throwing games to save time, the code assigns the full game time for 
 
 ## Running:
 - Install python
-- Install required python modules. On windows:
-    - Run `cmd.exe`
-    - `cd c:\path\to\lc_speedrun`
-    - `python3 -m pip install -r requirements.txt`
+- Install required python modules.
+    - Windows:
+        - Install python3
+        - Install GTK: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
+        - Run `cmd.exe`
+        - `cd c:\path\to\lc_speedrun`
+        - `python3 -m pip install -r requirements.txt`
+    - Mac
+        - `brew install python3 cairo pango gdk-pixbuf libffi`
 - edit lc\_speedrun.ini
 - python3 lc\_speedrun.py
-
-- Script assumes everything in games.pgn is included in the run.
+- Script downloads games from lichess.org, adds to games.pgn, and finds moves played etc.
+    - Also assumes everything in games.pgn is included in the run.
     - If you start a new run, delete games.pgn manually
+- Use all.png and total.txt files as sources in e.g. OBS for streaming.
 
 ## Output:
 Prints to stdout stats for each game, and final boards in ASCII.
+Outputs `all.png` and `total.txt` files for total progress
 Outputs \*.png files for Pawn, Knight, Bishop, Rook, Queen, and King.
-Outputs `total.txt`
-Use the \*.png and total.txt files as sources in e.g. OBS for streaming.
 

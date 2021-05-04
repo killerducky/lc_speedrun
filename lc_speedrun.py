@@ -94,7 +94,7 @@ def download_games():
             since = "{} {} +0000".format(game.headers['UTCDate'], game.headers['UTCTime'])
             # Add 1 second to make sure we skip this game that we have in the pgn already
             since = datetime.strptime(since, TIMEFORMAT) + timedelta(seconds=1)
-            print("Pre-existing games.pgn found. Change since to: {}", since)
+            print("Pre-existing games.pgn found. Change since to: {}".format(since))
             pgn_data = open("games.pgn").read()
     # Add 1 second to until time to make sure we get the final game
     until += timedelta(seconds=1)
