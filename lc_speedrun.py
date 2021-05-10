@@ -53,10 +53,13 @@ def print_stats(save):
                 t = TIMEUSED_LOSS_PENALTY
             else:
                 t = TIMEUSED
-            f.write("Moves played: {} / {} {:3.1f}%  Time Used {}\n".format(
-                total, 6*64, 100.0*total/6/64, timedelta(seconds=t)))
-            f.write("Games: {} Promotions {:2d}/16\n".format(
-                NUMGAMES, promotions))
+            s = "Moves played: {} / {} {:3.1f}%  Time Used {}".format(
+                total, 6*64, 100.0*total/6/64, timedelta(seconds=t))
+            f.write(s+"\n")
+            print(s)
+            s = "Games: {} Promotions {:2d}/16\n".format(NUMGAMES, promotions)
+            f.write(s)
+            print(s)
 
 def svg_scoreboard():
     images = []
@@ -161,7 +164,7 @@ def parse_game(game):
         clk_0 = clk_1
         clk_1 = 0
     elif not node.board().is_checkmate() and not game.headers['Result'] == '1/2-1/2':
-        if (plies%2==0 if user_is_white else plies%2==1):
+        if (game.headers['Result'] == '0-1' if user_is_white else game.headers['Result'] == '1-0'):
             print("User {} resigned!".format(CONF['DEFAULT']['username']))
             clk_0 = 0
             clk_1 = 0
